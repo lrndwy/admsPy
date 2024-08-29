@@ -1,0 +1,9 @@
+*.log
+*.db
+*.sqlite3
+
+/dist
+/venv
+
+/adms.db
+
