@@ -31,26 +31,10 @@ ADMS adalah solusi canggih untuk manajemen data absensi dan pengguna yang terint
    python main.py
    ```
 
-## 📚 Dokumentasi API
-
-Dokumentasi lengkap API tersedia di endpoint `/api/docs` setelah menjalankan aplikasi.
-
 ## 🌐 Manajemen Webhook
 
 Akses halaman manajemen webhook di `/webhooks` untuk menambah, mengubah, atau menghapus webhook.
 
-## 🤝 Kontribusi
-
-Kami sangat menghargai kontribusi! Silakan baca `CONTRIBUTING.md` untuk panduan cara berkontribusi ke proyek ini.
-
-## 📄 Lisensi
-
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
-
-## 📞 Dukungan
-
-Jika Anda memiliki pertanyaan atau mengalami masalah, jangan ragu untuk membuka issue atau menghubungi tim dukungan kami di support@adms.com.
-
 ---
 
-Dibuat dengan ❤️ oleh Tim ADMS
+Copyright © 2024 Liar. All rights reserved.
