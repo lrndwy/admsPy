@@ -1,8 +1,11 @@
 import logging
 import os
+import socket
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
+from threading import Thread
 
 import bcrypt
 import requests
@@ -19,7 +22,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///adms.db'
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET')
-# app.config['SCHEDULER_API_ENABLED'] = True
+app.config['SCHEDULER_API_ENABLED'] = True
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -30,7 +33,10 @@ scheduler.start()
 # Setup logging
 handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=1)
 handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
 app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
 
 # Models
 class IClockMachine(db.Model):
@@ -84,6 +90,10 @@ def get_timezone_offset_string(timezone):
 
 # Services
 def handle_machine_heartbeat(serial_number):
+    if not serial_number:
+        app.logger.error("Serial number tidak diberikan")
+        return None
+    
     machine = IClockMachine.query.filter_by(serial_number=serial_number).first()
     if machine:
         machine.last_seen = datetime.now(timezone.utc)
@@ -98,6 +108,7 @@ def handle_machine_heartbeat(serial_number):
         db.session.add(new_machine)
         db.session.commit()
         app.logger.info(f"Mesin baru {serial_number} ditambahkan")
+        machine = new_machine
     return machine
 
 def handle_user_received(serial_number, adms_user):
@@ -203,7 +214,17 @@ def delete_hook(hook_id):
 @app.route('/iclock/cdata', methods=['GET'])
 def handshake():
     serial_number = request.args.get('SN')
-    handle_machine_heartbeat(serial_number)
+    app.logger.info(f"Handshake dimulai untuk SN: {serial_number}")
+    if not serial_number:
+        app.logger.error("Handshake gagal: Serial number tidak diberikan")
+        return "ERROR: Serial number tidak diberikan", 400
+    
+    app.logger.info(f"Handshake request diterima dari {serial_number}")
+    machine = handle_machine_heartbeat(serial_number)
+    if not machine:
+        app.logger.error(f"Gagal memproses mesin dengan SN: {serial_number}")
+        return "ERROR: Gagal memproses mesin", 500
+    
     response = [
         f"GET OPTION FROM: {serial_number}",
         "STAMP=9999",
@@ -215,12 +236,12 @@ def handshake():
         "TransTimes=00:00;23:59",
         "TransInterval=1",
         "TransFlag=TransData AttLog\tOpLog\tEnrollUser\tChgUser\tEnrollFP\tChgFP\tFPImag",
-        f"TimeZone={request.machine.timezone}",
+        f"TimeZone={machine.timezone}",
         "Realtime=1",
         "Encrypt=None",
     ]
-    app.logger.info(f"Received Handshake: {request.args}")
-    app.logger.info(f"Response: {response}")
+    app.logger.info(f"Handshake berhasil untuk SN: {serial_number}")
+    app.logger.debug(f"Response: {response}")
     return "\r\n".join(response)
 
 @app.route('/iclock/cdata', methods=['POST'])
@@ -345,6 +366,48 @@ def init_db():
     with app.app_context():
         db.create_all()
 
+def attempt_connection(max_retries=5, delay=5):
+    for attempt in range(max_retries):
+        try:
+            # Kode untuk melakukan koneksi
+            return True  # Jika berhasil
+        except ConnectionError:
+            app.logger.warning(f"Koneksi gagal, mencoba lagi dalam {delay} detik...")
+            time.sleep(delay)
+    return False
+
+def handle_connection(client_socket):
+    try:
+        while True:
+            data = client_socket.recv(1024)
+            if not data:
+                break
+            # Proses data yang diterima
+            processed_data = data.decode('utf-8').upper()
+            # Kirim kembali data yang telah diproses
+            client_socket.send(processed_data.encode('utf-8'))
+    except Exception as e:
+        print(f"Terjadi kesalahan: {e}")
+    finally:
+        client_socket.close()
+
+def start_server():
+    app.logger.info("Server dimulai")
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('0.0.0.0', 8082))
+    server_socket.listen(5)
+    app.logger.info("Server mendengarkan di 0.0.0.0:8082")
+    
+    while True:
+        try:
+            client_socket, addr = server_socket.accept()
+            app.logger.info(f"Koneksi diterima dari {addr}")
+            client_thread = Thread(target=handle_connection, args=(client_socket,))
+            client_thread.start()
+        except Exception as e:
+            app.logger.error(f"Error saat menerima koneksi: {str(e)}")
+
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0', port=8082)
+    app.logger.info("Database diinisialisasi")
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555)
