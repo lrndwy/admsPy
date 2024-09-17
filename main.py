@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 from threading import Thread
 
 import bcrypt
+import pytz
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
@@ -23,6 +24,10 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///adms.db'
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET')
 app.config['SCHEDULER_API_ENABLED'] = True
+
+# Pengaturan zona waktu Jakarta
+JAKARTA_TZ = pytz.timezone('Asia/Jakarta')
+app.config['TIMEZONE'] = JAKARTA_TZ
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -88,6 +93,9 @@ def get_timezone_offset_string(timezone):
     offset = timedelta(hours=timezone)
     return f"{'+' if offset.total_seconds() >= 0 else '-'}{abs(offset).total_seconds() // 3600:02.0f}00"
 
+def get_current_jakarta_time():
+    return datetime.now(JAKARTA_TZ)
+
 # Services
 def handle_machine_heartbeat(serial_number):
     if not serial_number:
@@ -96,14 +104,14 @@ def handle_machine_heartbeat(serial_number):
     
     machine = IClockMachine.query.filter_by(serial_number=serial_number).first()
     if machine:
-        machine.last_seen = datetime.now(timezone.utc)
+        machine.last_seen = get_current_jakarta_time()
         db.session.commit()
         app.logger.info(f"Heartbeat diterima dari mesin {serial_number}")
     else:
         new_machine = IClockMachine(
             serial_number=serial_number, 
-            last_seen=datetime.now(timezone.utc),
-            timezone=int(os.getenv('DEFAULT_TZ', 0))
+            last_seen=get_current_jakarta_time(),
+            timezone=int(os.getenv('DEFAULT_TZ', 7))  # Default ke UTC+7 untuk Jakarta
         )
         db.session.add(new_machine)
         db.session.commit()
@@ -151,14 +159,14 @@ def handle_fingerprint_received(serial_number, adms_fingerprint):
     db.session.commit()
 
 def handle_attendance_received(serial_number, adms_attendance, machine):
-    # Hapus bagian koneksi ke attendance.db karena tidak diperlukan
-
     iclock_machine = IClockMachine.query.filter_by(serial_number=serial_number).first()
     attendance_records = []
     for att in adms_attendance:
+        attendance_date = datetime.strptime(att['date'] + get_timezone_offset_string(machine.timezone), "%Y-%m-%d %H:%M:%S%z")
+        jakarta_date = attendance_date.astimezone(JAKARTA_TZ)
         attendance = IClockAttendance(
-            pin=int(att['pin']),  # Pastikan pin adalah integer
-            date=datetime.strptime(att['date'] + get_timezone_offset_string(machine.timezone), "%Y-%m-%d %H:%M:%S%z"),
+            pin=int(att['pin']),
+            date=jakarta_date,
             status=att['status'],
             verify=att['verify'],
             work_code=att['workCode'],
@@ -228,9 +236,9 @@ def handshake():
     response = [
         f"GET OPTION FROM: {serial_number}",
         "STAMP=9999",
-        f"ATTLOGSTAMP={int(datetime.now(timezone.utc).timestamp())}",
-        f"OPERLOGStamp={int(datetime.now(timezone.utc).timestamp())}",
-        f"ATTPHOTOStamp={int(datetime.now(timezone.utc).timestamp())}",
+        f"ATTLOGSTAMP={int(get_current_jakarta_time().timestamp())}",
+        f"OPERLOGStamp={int(get_current_jakarta_time().timestamp())}",
+        f"ATTPHOTOStamp={int(get_current_jakarta_time().timestamp())}",
         "ErrorDelay=30",
         "Delay=10",
         "TransTimes=00:00;23:59",
@@ -407,7 +415,31 @@ def start_server():
         except Exception as e:
             app.logger.error(f"Error saat menerima koneksi: {str(e)}")
 
+def send_all_data_to_webhooks():
+    with app.app_context():
+        app.logger.info("Mengirim semua data ke webhooks")
+        active_hooks = get_active_hooks()
+        if not active_hooks:
+            app.logger.info("Tidak ada webhook aktif")
+            return
+
+        all_attendance = IClockAttendance.query.all()
+        data_to_send = [{'pin': att.pin, 'date': att.date.isoformat()} for att in all_attendance]
+
+        for hook in active_hooks:
+            try:
+                response = requests.post(hook.url, json=data_to_send)
+                print(data_to_send)
+                if response.ok:
+                    app.logger.info(f"Data berhasil dikirim ke {hook.url}")
+                else:
+                    app.logger.error(f"Gagal mengirim data ke {hook.url}: {response.status_code}")
+            except requests.RequestException as error:
+                app.logger.error(f"Error saat mengirim data ke {hook.url}: {str(error)}")
+
 if __name__ == '__main__':
     init_db()
     app.logger.info("Database diinisialisasi")
+    with app.app_context():
+        send_all_data_to_webhooks()  # Mengirim semua data saat aplikasi dimulai
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555)
