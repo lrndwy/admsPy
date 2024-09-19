@@ -423,15 +423,15 @@ def send_all_data_to_webhooks():
             app.logger.info("Tidak ada webhook aktif")
             return
 
+        # Mengambil semua data kehadiran dari database
         all_attendance = IClockAttendance.query.all()
         data_to_send = [{'pin': att.pin, 'date': att.date.isoformat()} for att in all_attendance]
 
         for hook in active_hooks:
             try:
                 response = requests.post(hook.url, json=data_to_send)
-                print(data_to_send)
                 if response.ok:
-                    app.logger.info(f"Data berhasil dikirim ke {hook.url}")
+                    app.logger.info(f"Semua data berhasil dikirim ke {hook.url}")
                 else:
                     app.logger.error(f"Gagal mengirim data ke {hook.url}: {response.status_code}")
             except requests.RequestException as error:
