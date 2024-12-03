@@ -386,34 +386,54 @@ def attempt_connection(max_retries=5, delay=5):
 
 def handle_connection(client_socket):
     try:
+        # Baca byte pertama untuk menentukan jenis koneksi
+        first_bytes = client_socket.recv(1, socket.MSG_PEEK)
+        if not first_bytes:
+            return
+            
+        # Jika byte pertama adalah 22 (0x16), ini adalah handshake SSL
+        if first_bytes[0] == 0x16:
+            app.logger.info("Koneksi SSL terdeteksi - mengabaikan")
+            return
+            
         while True:
             data = client_socket.recv(1024)
             if not data:
                 break
-            # Proses data yang diterima
-            processed_data = data.decode('utf-8').upper()
-            # Kirim kembali data yang telah diproses
-            client_socket.send(processed_data.encode('utf-8'))
+            # Hanya proses data non-SSL
+            try:
+                processed_data = data.decode('utf-8').upper()
+                client_socket.send(processed_data.encode('utf-8'))
+            except UnicodeDecodeError:
+                app.logger.warning("Menerima data non-UTF8, mengabaikan")
+                break
     except Exception as e:
-        print(f"Terjadi kesalahan: {e}")
+        app.logger.error(f"Error dalam handle_connection: {str(e)}")
     finally:
         client_socket.close()
 
 def start_server():
     app.logger.info("Server dimulai")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('0.0.0.0', 8082))
-    server_socket.listen(5)
-    app.logger.info("Server mendengarkan di 0.0.0.0:8082")
-    
-    while True:
-        try:
-            client_socket, addr = server_socket.accept()
-            app.logger.info(f"Koneksi diterima dari {addr}")
-            client_thread = Thread(target=handle_connection, args=(client_socket,))
-            client_thread.start()
-        except Exception as e:
-            app.logger.error(f"Error saat menerima koneksi: {str(e)}")
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        server_socket.bind(('0.0.0.0', 8082))
+        server_socket.listen(5)
+        app.logger.info("Server mendengarkan di 0.0.0.0:8082")
+        
+        while True:
+            try:
+                client_socket, addr = server_socket.accept()
+                app.logger.info(f"Koneksi diterima dari {addr}")
+                client_thread = Thread(target=handle_connection, args=(client_socket,))
+                client_thread.daemon = True
+                client_thread.start()
+            except Exception as e:
+                app.logger.error(f"Error saat menerima koneksi: {str(e)}")
+    except Exception as e:
+        app.logger.error(f"Error saat memulai server: {str(e)}")
+    finally:
+        server_socket.close()
 
 def send_all_data_to_webhooks():
     with app.app_context():
@@ -441,5 +461,12 @@ if __name__ == '__main__':
     init_db()
     app.logger.info("Database diinisialisasi")
     with app.app_context():
-        send_all_data_to_webhooks()  # Mengirim semua data saat aplikasi dimulai
+        send_all_data_to_webhooks()
+    
+    # Jalankan socket server di thread terpisah
+    server_thread = Thread(target=start_server)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    # Jalankan Flask app
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555)
