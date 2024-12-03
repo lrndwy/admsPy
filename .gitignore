@@ -9,3 +9,8 @@
 
 .DS_Store
 .hintrc
+.app.log
+.app.log.1
+.app.log.*
+app.log.*
+app.log.1
