@@ -18,6 +18,8 @@ from flask_jwt_extended import (JWTManager, create_access_token,
 from flask_restx import Api, Resource, fields
 from flask_sqlalchemy import SQLAlchemy
 import colorlog
+from werkzeug.serving import WSGIRequestHandler
+from flask.logging import default_handler
 
 load_dotenv()
 
@@ -54,7 +56,7 @@ log_format = (
     '│ LEVEL    : %(levelname)-8s\n'
     '│ MODULE   : %(name)s\n'
     '│ MESSAGE  : %(message)s\n'
-    '╰───────────────────────────────────────────────────────────────────────────╯'
+    '╰───────────────────────────────────────────────────────────────────���───────╯'
 )
 
 # Custom formatter untuk menangani pesan yang berisi array
@@ -293,6 +295,49 @@ def delete_hook(hook_id):
         db.session.commit()
         return True
 
+# Custom formatter untuk request Werkzeug
+class CustomRequestFormatter(logging.Formatter):
+    def format(self, record):
+        if hasattr(record, 'remote_addr'):
+            log_format = (
+                '╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
+                '│ TIME     : %(asctime)s\n'
+                '│ CLIENT   : %(remote_addr)s\n'
+                '│ METHOD   : %(method)s\n'
+                '│ PATH     : %(path)s\n'
+                '│ STATUS   : %(status)s\n'
+                '╰───────────────────────────────────────────────────────────────────────────╯'
+            )
+            return log_format % {
+                'asctime': self.formatTime(record),
+                'remote_addr': record.remote_addr,
+                'method': record.method,
+                'path': record.path,
+                'status': record.status_code
+            }
+        return super().format(record)
+
+# Custom request handler
+class CustomRequestHandler(WSGIRequestHandler):
+    def log(self, type, message, *args):
+        if type == 'info':
+            msg = message % args if args else message
+            if 'GET' in msg or 'POST' in msg:
+                method = msg.split('"')[1].split()[0]
+                path = msg.split('"')[1].split()[1]
+                status_code = msg.split('"')[-1].strip().split()[0]
+                record = logging.LogRecord(
+                    'werkzeug', 
+                    logging.INFO, 
+                    '', 0, 
+                    msg, (), None
+                )
+                record.remote_addr = self.address_string()
+                record.method = method
+                record.path = path
+                record.status_code = status_code
+                self.server.app.logger.handle(record)
+
 # Routes
 @app.route('/iclock/cdata', methods=['GET'])
 def handshake():
@@ -406,7 +451,11 @@ def receive_data():
 @app.route('/iclock/getrequest', methods=['GET'])
 def send_data():
     serial_number = request.args.get('SN')
-    app.logger.info(f"HEARTBEAT: {request.args}")
+    app.logger.info({
+        'event': 'HEARTBEAT',
+        'device': serial_number,
+        'timestamp': datetime.now(JAKARTA_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    })
     handle_machine_heartbeat(serial_number)
     return "OK"
 
@@ -555,4 +604,4 @@ if __name__ == '__main__':
     server_thread.start()
     
     # Jalankan Flask app
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555)
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555, request_handler=CustomRequestHandler)
