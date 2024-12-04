@@ -6,6 +6,7 @@ blinker==1.8.2
 certifi==2024.7.4
 charset-normalizer==3.3.2
 click==8.1.7
+colorlog==6.9.0
 Flask==3.0.3
 Flask-APScheduler==1.13.1
 Flask-JWT-Extended==4.6.0

@@ -17,6 +17,7 @@ from flask_jwt_extended import (JWTManager, create_access_token,
                                 get_jwt_identity, jwt_required)
 from flask_restx import Api, Resource, fields
 from flask_sqlalchemy import SQLAlchemy
+import colorlog
 
 load_dotenv()
 
@@ -36,12 +37,28 @@ scheduler.init_app(app)
 scheduler.start()
 
 # Setup logging
+log_colors = {
+    'DEBUG': 'white',
+    'INFO': 'green',
+    'WARNING': 'yellow',
+    'ERROR': 'red',
+    'CRITICAL': 'bold_red',
+}
+
+formatter = colorlog.ColoredFormatter(
+    "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt=None,
+    reset=True,
+    log_colors=log_colors,
+    secondary_log_colors={},
+    style='%'
+)
+
 handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=1)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.DEBUG)
 
 # Models
 class IClockMachine(db.Model):
