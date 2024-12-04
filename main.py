@@ -56,7 +56,7 @@ log_format = (
     '│ LEVEL    : %(levelname)-8s\n'
     '│ MODULE   : %(name)s\n'
     '│ MESSAGE  : %(message)s\n'
-    '╰───────────────────────────────────────────────────────────────────���───────╯'
+    '╰───────────────────────────────────────────────────────────────────────────╯'
 )
 
 # Custom formatter untuk menangani pesan yang berisi array
@@ -321,22 +321,25 @@ class CustomRequestFormatter(logging.Formatter):
 class CustomRequestHandler(WSGIRequestHandler):
     def log(self, type, message, *args):
         if type == 'info':
-            msg = message % args if args else message
-            if 'GET' in msg or 'POST' in msg:
-                method = msg.split('"')[1].split()[0]
-                path = msg.split('"')[1].split()[1]
-                status_code = msg.split('"')[-1].strip().split()[0]
-                record = logging.LogRecord(
-                    'werkzeug', 
-                    logging.INFO, 
-                    '', 0, 
-                    msg, (), None
-                )
-                record.remote_addr = self.address_string()
-                record.method = method
-                record.path = path
-                record.status_code = status_code
-                self.server.app.logger.handle(record)
+            try:
+                msg = message % args if args else message
+                if 'GET' in msg or 'POST' in msg:
+                    method = msg.split('"')[1].split()[0]
+                    path = msg.split('"')[1].split()[1]
+                    status_code = msg.split('"')[-1].strip().split()[0]
+                    
+                    log_message = (
+                        '\n╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
+                        f'│ TIME     : {datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")}\n'
+                        f'│ CLIENT   : {self.address_string()}\n'
+                        f'│ METHOD   : {method}\n'
+                        f'│ PATH     : {path}\n'
+                        f'│ STATUS   : {status_code}\n'
+                        '╰───────────────────────────────────────────────────────────────────────────╯'
+                    )
+                    print(log_message)  # Langsung print log request
+            except Exception as e:
+                print(f"Error logging request: {str(e)}")
 
 # Routes
 @app.route('/iclock/cdata', methods=['GET'])
@@ -451,11 +454,12 @@ def receive_data():
 @app.route('/iclock/getrequest', methods=['GET'])
 def send_data():
     serial_number = request.args.get('SN')
-    app.logger.info({
+    log_data = {
         'event': 'HEARTBEAT',
         'device': serial_number,
         'timestamp': datetime.now(JAKARTA_TZ).strftime('%Y-%m-%d %H:%M:%S')
-    })
+    }
+    app.logger.info(log_data)
     handle_machine_heartbeat(serial_number)
     return "OK"
 
@@ -595,6 +599,7 @@ def send_all_data_to_webhooks():
 if __name__ == '__main__':
     init_db()
     app.logger.info("Database diinisialisasi")
+    
     with app.app_context():
         send_all_data_to_webhooks()
     
@@ -603,5 +608,11 @@ if __name__ == '__main__':
     server_thread.daemon = True
     server_thread.start()
     
-    # Jalankan Flask app
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5555, request_handler=CustomRequestHandler)
+    # Jalankan Flask app dengan custom request handler
+    app.run(
+        debug=False,  # Set debug ke False untuk menghindari masalah dengan logger
+        use_reloader=False,
+        host='0.0.0.0',
+        port=5555,
+        request_handler=CustomRequestHandler
+    )
