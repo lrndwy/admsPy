@@ -14,3 +14,4 @@
 .app.log.*
 app.log.*
 app.log.1
+logs/

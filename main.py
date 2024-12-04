@@ -38,27 +38,64 @@ scheduler.start()
 
 # Setup logging
 log_colors = {
-    'DEBUG': 'white',
-    'INFO': 'green',
-    'WARNING': 'yellow',
-    'ERROR': 'red',
-    'CRITICAL': 'bold_red',
+    'DEBUG': 'cyan',
+    'INFO': 'bold_green',
+    'SUCCESS': 'bold_green',
+    'WARNING': 'bold_yellow',
+    'ERROR': 'bold_red',
+    'CRITICAL': 'bold_red,bg_white',
 }
 
+# Format log yang lebih detail dan rapi
+log_format = (
+    '%(log_color)s'
+    '╭───────────────────────────────────────────────────────────────────────╮\n'
+    '│ %(asctime)s │ %(levelname)-8s │ %(name)s \n'
+    '│ MESSAGE: %(message)s\n'
+    '╰───────────────────────────────────────────────────────────────────────╯'
+)
+
+# Konfigurasi formatter dengan format yang baru
 formatter = colorlog.ColoredFormatter(
-    "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt=None,
+    log_format,
+    datefmt='%Y-%m-%d %H:%M:%S',
     reset=True,
     log_colors=log_colors,
     secondary_log_colors={},
     style='%'
 )
 
-handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=1)
-handler.setLevel(logging.DEBUG)
-handler.setFormatter(formatter)
-app.logger.addHandler(handler)
+# Pastikan direktori logs ada
+os.makedirs('logs', exist_ok=True)
+
+# Setup handler untuk file
+file_handler = RotatingFileHandler(
+    'logs/app.log',
+    maxBytes=10485760,  # 10MB
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+
+# Setup handler untuk console
+console_handler = colorlog.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
+
+# Hapus handler yang ada sebelumnya
+for handler in app.logger.handlers[:]:
+    app.logger.removeHandler(handler)
+
+# Tambahkan handler baru
+app.logger.addHandler(file_handler)
+app.logger.addHandler(console_handler)
 app.logger.setLevel(logging.DEBUG)
+
+# Custom success level
+logging.SUCCESS = 25  # between INFO and WARNING
+logging.addLevelName(logging.SUCCESS, 'SUCCESS')
+setattr(app.logger, 'success', lambda message, *args: app.logger.log(logging.SUCCESS, message, *args))
 
 # Models
 class IClockMachine(db.Model):
