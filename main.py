@@ -49,14 +49,31 @@ log_colors = {
 # Format log yang lebih detail dan rapi
 log_format = (
     '%(log_color)s'
-    '╭───────────────────────────────────────────────────────────────────────╮\n'
-    '│ %(asctime)s │ %(levelname)-8s │ %(name)s \n'
-    '│ MESSAGE: %(message)s\n'
-    '╰───────────────────────────────────────────────────────────────────────╯'
+    '╭──────────────────────────────[ SYSTEM LOG ]──────────────────────────────╮\n'
+    '│ TIME     : %(asctime)s\n'
+    '│ LEVEL    : %(levelname)-8s\n'
+    '│ MODULE   : %(name)s\n'
+    '│ MESSAGE  : %(message)s\n'
+    '╰───────────────────────────────────────────────────────────────────────────╯'
 )
 
+# Custom formatter untuk menangani pesan yang berisi array
+class PrettyFormatter(colorlog.ColoredFormatter):
+    def format(self, record):
+        if isinstance(record.msg, (list, dict)):
+            # Jika pesan adalah list atau dict, format dengan indentasi
+            formatted_msg = 'Data details below:\n'
+            if isinstance(record.msg, list):
+                for idx, item in enumerate(record.msg, 1):
+                    formatted_msg += f'│           {idx}. {item}\n'
+            else:
+                for key, value in record.msg.items():
+                    formatted_msg += f'│           {key}: {value}\n'
+            record.msg = formatted_msg.rstrip()  # Hapus newline terakhir
+        return super().format(record)
+
 # Konfigurasi formatter dengan format yang baru
-formatter = colorlog.ColoredFormatter(
+formatter = PrettyFormatter(
     log_format,
     datefmt='%Y-%m-%d %H:%M:%S',
     reset=True,
