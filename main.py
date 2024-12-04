@@ -185,7 +185,11 @@ def handle_attendance_received(serial_number, adms_attendance, machine):
     for hook in active_hooks:
         try:
             response = requests.post(hook.url, json=[
-                {'pin': att['pin'], 'date': att['date']} for att in adms_attendance
+                {
+                    'pin': att['pin'], 
+                    'date': att['date'],
+                    'mesin': serial_number  # Menambahkan serial number mesin
+                } for att in adms_attendance
             ])
             if response.ok:
                 app.logger.info(f"Data pin berhasil dikirim ke {hook.url}")
@@ -443,9 +447,20 @@ def send_all_data_to_webhooks():
             app.logger.info("Tidak ada webhook aktif")
             return
 
-        # Mengambil semua data kehadiran dari database
-        all_attendance = IClockAttendance.query.all()
-        data_to_send = [{'pin': att.pin, 'date': att.date.isoformat()} for att in all_attendance]
+        # Mengambil semua data kehadiran dari database dengan informasi mesin
+        all_attendance = db.session.query(
+            IClockAttendance, 
+            IClockMachine.serial_number
+        ).join(
+            IClockMachine, 
+            IClockAttendance.iclock_machine_id == IClockMachine.id
+        ).all()
+
+        data_to_send = [{
+            'pin': att.pin, 
+            'date': att.date.isoformat(),
+            'machine_sn': machine_sn  # Menambahkan serial number mesin
+        } for att, machine_sn in all_attendance]
 
         for hook in active_hooks:
             try:
