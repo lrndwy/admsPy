@@ -15,3 +15,6 @@
 app.log.*
 app.log.1
 logs/
+__pycache__/
+
+*.pyc

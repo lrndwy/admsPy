@@ -5,98 +5,80 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webhook Management</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        
-        h1 {
-            color: #333;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        
-        th {
-            background-color: #f2f2f2;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        input[type="text"],
-        input[type="submit"] {
-            width: 100%;
-            padding: 8px;
-        }
-        
-        input[type="checkbox"] {
-            margin-right: 5px;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css" rel="stylesheet" />
 </head>
 
-<body>
-    <h1>Webhook Management</h1>
+<body class="bg-gray-50">
+    <div class="p-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Webhook Management</h1>
 
-    <h2>Add New Webhook</h2>
-    <form id="addForm">
-        <div class="form-group">
-            <input type="text" id="newUrl" placeholder="Enter webhook URL" required>
+        <div class="p-6 bg-white rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Add New Webhook</h2>
+            <form id="addForm" class="space-y-4">
+                <div>
+                    <input type="text" id="newUrl" 
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                        placeholder="Enter webhook URL" required>
+                </div>
+                <button type="submit" 
+                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5">
+                    Add Webhook
+                </button>
+            </form>
         </div>
-        <div class="form-group">
-            <input type="submit" value="Add Webhook">
+
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Existing Webhooks</h2>
+            <div class="relative overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">ID</th>
+                            <th scope="col" class="px-6 py-3">URL</th>
+                            <th scope="col" class="px-6 py-3">Active</th>
+                            <th scope="col" class="px-6 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hook in hooks %}
+                        <tr class="bg-white border-b hover:bg-gray-50">
+                            <td class="px-6 py-4">{{ hook.id }}</td>
+                            <td class="px-6 py-4">{{ hook.url }}</td>
+                            <td class="px-6 py-4">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" {% if hook.is_active %}checked{% endif %}
+                                        onchange="updateHook({{ hook.id }}, this.checked)">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </td>
+                            <td class="px-6 py-4">
+                                <button onclick="deleteHook({{ hook.id }})"
+                                    class="font-medium text-red-600 hover:text-red-900">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </form>
+    </div>
 
-    <h2>Existing Webhooks</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>URL</th>
-                <th>Active</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="webhookList">
-            {% for hook in hooks %}
-            <tr>
-                <td>{{ hook.id }}</td>
-                <td>{{ hook.url }}</td>
-                <td><input type="checkbox" {% if hook.is_active %}checked{% endif %} onchange="updateHook({{ hook.id }}, this.checked)"></td>
-                <td>
-                    <button onclick="deleteHook({{ hook.id }})">Delete</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
     <script>
         function addHook() {
             const url = document.getElementById('newUrl').value;
             fetch('/api/hooks', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        url: url
-                    })
-                }).then(response => response.json())
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: url
+                })
+            }).then(response => response.json())
                 .then(data => {
                     location.reload();
                 });
@@ -104,15 +86,15 @@
 
         function updateHook(id, isActive) {
             fetch(`/api/hooks/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        url: document.querySelector(`tr[data-id="${id}"] td:nth-child(2)`).textContent,
-                        is_active: isActive
-                    })
-                }).then(response => response.json())
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: document.querySelector(`tr[data-id="${id}"] td:nth-child(2)`).textContent,
+                    is_active: isActive
+                })
+            }).then(response => response.json())
                 .then(data => {
                     console.log('Hook updated');
                 });

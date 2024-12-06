@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-50">
+    <div class="p-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Machine Management</h1>
+
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <div class="relative overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Serial Number</th>
+                            <th scope="col" class="px-6 py-3">Machine Name</th>
+                            <th scope="col" class="px-6 py-3">Last Seen</th>
+                            <th scope="col" class="px-6 py-3">Timezone</th>
+                            <th scope="col" class="px-6 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for machine in machines %}
+                        <tr class="bg-white border-b hover:bg-gray-50">
+                            <td class="px-6 py-4">{{ machine.serial_number }}</td>
+                            <td class="px-6 py-4">
+                                <input type="text" 
+                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                    value="{{ machine.name or '' }}" 
+                                    placeholder="Enter machine name"
+                                    data-id="{{ machine.id }}">
+                            </td>
+                            <td class="px-6 py-4 text-gray-500">
+                                {{ machine.last_seen.strftime('%Y-%m-%d %H:%M:%S') if machine.last_seen }}
+                            </td>
+                            <td class="px-6 py-4">UTC{{ '%+d'|format(machine.timezone) }}</td>
+                            <td class="px-6 py-4">
+                                <button onclick="updateMachineName({{ machine.id }})"
+                                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5">
+                                    Save
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
+    <script>
+        function updateMachineName(machineId) {
+            const nameInput = document.querySelector(`input[data-id="${machineId}"]`);
+            const newName = nameInput.value;
+
+            fetch(`/api/machines/${machineId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: newName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Machine name updated successfully');
+                } else {
+                    alert('Failed to update machine name');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating machine name');
+            });
+        }
+    </script>
+</body>
+
+</html>

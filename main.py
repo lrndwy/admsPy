@@ -120,8 +120,10 @@ setattr(app.logger, 'success', lambda message, *args: app.logger.log(logging.SUC
 class IClockMachine(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     serial_number = db.Column(db.String(80), unique=True, nullable=False)
+    name = db.Column(db.String(100))
     last_seen = db.Column(db.DateTime)
     timezone = db.Column(db.Integer, nullable=False)
+    
 
 class IClockUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -183,8 +185,9 @@ def handle_machine_heartbeat(serial_number):
     else:
         new_machine = IClockMachine(
             serial_number=serial_number, 
+            name=f"Mesin {serial_number}",  # Nama default
             last_seen=get_current_jakarta_time(),
-            timezone=int(os.getenv('DEFAULT_TZ', 7))  # Default ke UTC+7 untuk Jakarta
+            timezone=int(os.getenv('DEFAULT_TZ', 7))
         )
         db.session.add(new_machine)
         db.session.commit()
@@ -497,6 +500,25 @@ def delete_hook_route(hook_id):
 def webhooks_page():
     hooks = AttendanceHook.query.all()
     return render_template('webhooks.html', hooks=hooks)
+
+@app.route('/machines')
+def machines_page():
+    machines = IClockMachine.query.all()
+    return render_template('machines.html', machines=machines)
+
+@app.route('/api/machines/<int:machine_id>', methods=['PUT'])
+def update_machine(machine_id):
+    try:
+        data = request.json
+        machine = IClockMachine.query.get(machine_id)
+        if machine:
+            machine.name = data.get('name')
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Mesin tidak ditemukan'}), 404
+    except Exception as e:
+        app.logger.error(f"Error saat memperbarui nama mesin: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def init_db():
     with app.app_context():
