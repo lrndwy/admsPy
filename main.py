@@ -41,7 +41,7 @@ scheduler.start()
 # Setup logging
 log_colors = {
     'DEBUG': 'cyan',
-    'INFO': 'bold_green,bg_white',
+    'INFO': 'bold_blue,bg_white',
     'SUCCESS': 'bold_white,bg_green',
     'WARNING': 'bold_yellow,bg_black',
     'ERROR': 'bold_black,bg_red',
