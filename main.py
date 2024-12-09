@@ -299,7 +299,7 @@ class CustomRequestFormatter(logging.Formatter):
     def format(self, record):
         if hasattr(record, 'remote_addr'):
             log_format = (
-                '%(asctime)s │ REQUEST │ %(method)-7s │ %(status)s │ %(remote_addr)s │ %(path)s'
+                '\033[1;37;44m%(asctime)s\033[0m │ \033[1;32;40mREQUEST\033[0m │ \033[1;33;40m%(method)-7s\033[0m │ \033[1;31;40m%(status)s\033[0m │ \033[1;36;40m%(remote_addr)s\033[0m │ \033[1;35;40m%(path)s\033[0m'
             )
             return log_format % {
                 'asctime': self.formatTime(record),
@@ -322,8 +322,10 @@ class CustomRequestHandler(WSGIRequestHandler):
                     status_code = msg.split('"')[-1].strip().split()[0]
                     
                     log_message = (
-                        f'{datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")} │ '
-                        f'REQUEST │ {method:<7} │ {status_code} │ {self.address_string()} │ {path}'
+                        f'\033[1;37;44m{datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")}\033[0m │ '
+                        f'\033[1;32;40mREQUEST\033[0m │ \033[1;33;40m{method:<7}\033[0m │ '
+                        f'\033[1;31;40m{status_code}\033[0m │ \033[1;36;40m{self.address_string()}\033[0m │ '
+                        f'\033[1;35;40m{path}\033[0m'
                     )
                     print(log_message)
             except Exception as e:
