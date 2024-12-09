@@ -50,22 +50,19 @@ log_colors = {
 
 # Format log yang lebih ringkas
 log_format = (
-    '%(log_color)s[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s%(reset)s'
+    '%(log_color)s%(asctime)s │ %(levelname)-8s │ %(name)s │ %(message)s%(reset)s'
 )
 
 # Custom formatter untuk menangani pesan yang berisi array
 class PrettyFormatter(colorlog.ColoredFormatter):
     def format(self, record):
         if isinstance(record.msg, (list, dict)):
-            # Jika pesan adalah list atau dict, format dengan indentasi
-            formatted_msg = 'Data details below:\n'
+            formatted_msg = 'Data details: '
             if isinstance(record.msg, list):
-                for idx, item in enumerate(record.msg, 1):
-                    formatted_msg += f'│           {idx}. {item}\n'
+                formatted_msg += ', '.join(f'[{idx}] {item}' for idx, item in enumerate(record.msg, 1))
             else:
-                for key, value in record.msg.items():
-                    formatted_msg += f'│           {key}: {value}\n'
-            record.msg = formatted_msg.rstrip()  # Hapus newline terakhir
+                formatted_msg += ', '.join(f'{key}: {value}' for key, value in record.msg.items())
+            record.msg = formatted_msg
         return super().format(record)
 
 # Konfigurasi formatter dengan format yang baru
@@ -302,13 +299,7 @@ class CustomRequestFormatter(logging.Formatter):
     def format(self, record):
         if hasattr(record, 'remote_addr'):
             log_format = (
-                '╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
-                '│ TIME     : %(asctime)s\n'
-                '│ CLIENT   : %(remote_addr)s\n'
-                '│ METHOD   : %(method)s\n'
-                '│ PATH     : %(path)s\n'
-                '│ STATUS   : %(status)s\n'
-                '╰───────────────────────────────────────────────────────────────────────────╯'
+                '%(asctime)s │ REQUEST │ %(method)-7s │ %(status)s │ %(remote_addr)s │ %(path)s'
             )
             return log_format % {
                 'asctime': self.formatTime(record),
@@ -331,15 +322,10 @@ class CustomRequestHandler(WSGIRequestHandler):
                     status_code = msg.split('"')[-1].strip().split()[0]
                     
                     log_message = (
-                        '\n╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
-                        f'│ TIME     : {datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")}\n'
-                        f'│ CLIENT   : {self.address_string()}\n'
-                        f'│ METHOD   : {method}\n'
-                        f'│ PATH     : {path}\n'
-                        f'│ STATUS   : {status_code}\n'
-                        '╰───────────────────────────────────────────────────────────────────────────╯'
+                        f'{datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")} │ '
+                        f'REQUEST │ {method:<7} │ {status_code} │ {self.address_string()} │ {path}'
                     )
-                    print(log_message)  # Langsung print log request
+                    print(log_message)
             except Exception as e:
                 print(f"Error logging request: {str(e)}")
 
