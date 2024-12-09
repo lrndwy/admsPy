@@ -48,15 +48,9 @@ log_colors = {
     'CRITICAL': 'bold_red,bg_white',
 }
 
-# Format log yang lebih detail dan rapi
+# Format log yang lebih ringkas
 log_format = (
-    '%(log_color)s'
-    '╭──────────────────────────────[ SYSTEM LOG ]──────────────────────────────╮\n'
-    '│ TIME     : %(asctime)s\n'
-    '│ LEVEL    : %(levelname)-8s\n'
-    '│ MODULE   : %(name)s\n'
-    '│ MESSAGE  : %(message)s\n'
-    '╰───────────────────────────────────────────────────────────────────────────╯'
+    '%(log_color)s[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s%(reset)s'
 )
 
 # Custom formatter untuk menangani pesan yang berisi array
@@ -256,6 +250,10 @@ def handle_attendance_received(serial_number, adms_attendance, machine):
     db.session.commit()
     app.logger.info(f"{len(attendance_records)} catatan kehadiran diterima dari mesin {serial_number}")
 
+    # Log detail kehadiran yang diterima
+    for att in attendance_records:
+        app.logger.debug(f"Attendance received: PIN={att.pin}, Date={att.date}, Status={att.status}")
+
     # Mengirim data pin ke semua hook yang aktif
     active_hooks = get_active_hooks()
     machine_name = iclock_machine.name if iclock_machine else "Unknown"  # Ambil nama mesin
@@ -304,7 +302,7 @@ class CustomRequestFormatter(logging.Formatter):
     def format(self, record):
         if hasattr(record, 'remote_addr'):
             log_format = (
-                '╭─────────────────���────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
+                '╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
                 '│ TIME     : %(asctime)s\n'
                 '│ CLIENT   : %(remote_addr)s\n'
                 '│ METHOD   : %(method)s\n'
