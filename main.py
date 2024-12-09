@@ -596,7 +596,8 @@ def send_all_data_to_webhooks():
         # Mengambil semua data kehadiran dari database dengan informasi mesin
         all_attendance = db.session.query(
             IClockAttendance, 
-            IClockMachine.serial_number
+            IClockMachine.serial_number,
+            IClockMachine.name  # Menambahkan nama mesin
         ).join(
             IClockMachine, 
             IClockAttendance.iclock_machine_id == IClockMachine.id
@@ -605,8 +606,9 @@ def send_all_data_to_webhooks():
         data_to_send = [{
             'pin': att.pin, 
             'date': att.date.isoformat(),
-            'machine_sn': machine_sn  # Menambahkan serial number mesin
-        } for att, machine_sn in all_attendance]
+            'machine_sn': machine_sn,  # Menambahkan serial number mesin
+            'mesin': machine_name  # Menambahkan nama mesin
+        } for att, machine_sn, machine_name in all_attendance]
 
         for hook in active_hooks:
             try:
