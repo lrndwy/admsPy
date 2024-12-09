@@ -258,13 +258,14 @@ def handle_attendance_received(serial_number, adms_attendance, machine):
 
     # Mengirim data pin ke semua hook yang aktif
     active_hooks = get_active_hooks()
+    machine_name = iclock_machine.name if iclock_machine else "Unknown"  # Ambil nama mesin
     for hook in active_hooks:
         try:
             response = requests.post(hook.url, json=[
                 {
                     'pin': att['pin'], 
                     'date': att['date'],
-                    'mesin': serial_number  # Menambahkan serial number mesin
+                    'mesin': machine_name  # Menggunakan nama mesin
                 } for att in adms_attendance
             ])
             if response.ok:
@@ -303,7 +304,7 @@ class CustomRequestFormatter(logging.Formatter):
     def format(self, record):
         if hasattr(record, 'remote_addr'):
             log_format = (
-                '╭──────────────────────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
+                '╭─────────────────���────────────[ HTTP REQUEST ]─────────────────────────────╮\n'
                 '│ TIME     : %(asctime)s\n'
                 '│ CLIENT   : %(remote_addr)s\n'
                 '│ METHOD   : %(method)s\n'
@@ -606,8 +607,7 @@ def send_all_data_to_webhooks():
         data_to_send = [{
             'pin': att.pin, 
             'date': att.date.isoformat(),
-            'machine_sn': machine_sn,  # Menambahkan serial number mesin
-            'mesin': machine_name  # Menambahkan nama mesin
+            'mesin': machine_name  # Menggunakan nama mesin dari database
         } for att, machine_sn, machine_name in all_attendance]
 
         for hook in active_hooks:
