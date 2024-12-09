@@ -298,9 +298,42 @@ def delete_hook(hook_id):
 class CustomRequestFormatter(logging.Formatter):
     def format(self, record):
         if hasattr(record, 'remote_addr'):
+            # Tentukan warna background berdasarkan method
+            method_colors = {
+                'GET': '\033[1;37;44m',    # Putih terang di atas biru
+                'POST': '\033[1;37;42m',   # Putih terang di atas hijau
+                'PUT': '\033[1;37;43m',    # Putih terang di atas kuning
+                'DELETE': '\033[1;37;41m', # Putih terang di atas merah
+                'DEFAULT': '\033[1;37;45m' # Putih terang di atas magenta
+            }
+            
+            # Tentukan warna background untuk status code
+            if hasattr(record, 'status_code'):
+                status_code = str(record.status_code)
+                if status_code.startswith('2'):
+                    status_color = '\033[1;37;42m'  # Putih terang di atas hijau (Success)
+                elif status_code.startswith('3'):
+                    status_color = '\033[1;37;43m'  # Putih terang di atas kuning (Redirect)
+                elif status_code.startswith('4'):
+                    status_color = '\033[1;37;41m'  # Putih terang di atas merah (Client Error)
+                elif status_code.startswith('5'):
+                    status_color = '\033[1;37;45m'  # Putih terang di atas magenta (Server Error)
+                else:
+                    status_color = '\033[1;37;40m'  # Putih terang di atas hitam (Default)
+            else:
+                status_color = '\033[1;37;40m'
+            
+            method_color = method_colors.get(record.method, method_colors['DEFAULT'])
+            
             log_format = (
-                '\033[1;37;44m%(asctime)s\033[0m │ \033[1;32;40mREQUEST\033[0m │ \033[1;33;40m%(method)-7s\033[0m │ \033[1;31;40m%(status)s\033[0m │ \033[1;36;40m%(remote_addr)s\033[0m │ \033[1;35;40m%(path)s\033[0m'
+                '\033[1;37;44m%(asctime)s\033[0m │ '           # Timestamp dengan background biru
+                '\033[1;37;46mREQUEST\033[0m │ '               # "REQUEST" dengan background cyan
+                f'{method_color}%(method)-7s\033[0m │ '        # Method dengan warna dinamis
+                f'{status_color}%(status)s\033[0m │ '          # Status dengan warna dinamis
+                '\033[1;37;44m%(remote_addr)s\033[0m │ '       # IP dengan background biru
+                '\033[1;37;45m%(path)s\033[0m'                 # Path dengan background magenta
             )
+            
             return log_format % {
                 'asctime': self.formatTime(record),
                 'remote_addr': record.remote_addr,
@@ -321,11 +354,37 @@ class CustomRequestHandler(WSGIRequestHandler):
                     path = msg.split('"')[1].split()[1]
                     status_code = msg.split('"')[-1].strip().split()[0]
                     
+                    # Menentukan warna background berdasarkan status code
+                    if status_code.startswith('2'):  # 2xx Success
+                        status_bg = '\033[42m'  # Hijau
+                    elif status_code.startswith('3'):  # 3xx Redirect
+                        status_bg = '\033[43m'  # Kuning
+                    elif status_code.startswith('4'):  # 4xx Client Error
+                        status_bg = '\033[41m'  # Merah
+                    elif status_code.startswith('5'):  # 5xx Server Error
+                        status_bg = '\033[45m'  # Magenta
+                    else:
+                        status_bg = '\033[40m'  # Hitam default
+                    
+                    # Menentukan warna background untuk method
+                    if method == 'GET':
+                        method_bg = '\033[44m'  # Biru
+                    elif method == 'POST':
+                        method_bg = '\033[42m'  # Hijau
+                    elif method == 'PUT':
+                        method_bg = '\033[43m'  # Kuning
+                    elif method == 'DELETE':
+                        method_bg = '\033[41m'  # Merah
+                    else:
+                        method_bg = '\033[40m'  # Hitam default
+                    
                     log_message = (
-                        f'\033[1;37;44m{datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")}\033[0m │ '
-                        f'\033[1;32;40mREQUEST\033[0m │ \033[1;33;40m{method:<7}\033[0m │ '
-                        f'\033[1;31;40m{status_code}\033[0m │ \033[1;36;40m{self.address_string()}\033[0m │ '
-                        f'\033[1;35;40m{path}\033[0m'
+                        f'\033[30;47m{datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S")}\033[0m │ '
+                        f'\033[30;46mREQUEST\033[0m │ '
+                        f'{method_bg}\033[1;37m{method:<7}\033[0m │ '
+                        f'{status_bg}\033[1;37m{status_code}\033[0m │ '
+                        f'\033[30;46m{self.address_string()}\033[0m │ '
+                        f'\033[30;44m{path}\033[0m'
                     )
                     print(log_message)
             except Exception as e:
