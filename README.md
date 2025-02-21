@@ -39,7 +39,7 @@ ADMS adalah solusi canggih untuk manajemen data absensi dan pengguna yang terint
    ```
 2. Jalankan container
    ```
-   docker run -d \
+docker run -d \
   -p 5555:5555 \
   -v $(pwd)/logs:/app/logs \
   --name adms \
