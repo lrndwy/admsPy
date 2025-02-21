@@ -23,7 +23,6 @@ RUN mkdir -p logs
 
 # Set environment variables
 ENV FLASK_APP=main.py
-ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
 # Expose port yang digunakan aplikasi (default Flask port)
