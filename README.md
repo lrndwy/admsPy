@@ -31,6 +31,21 @@ ADMS adalah solusi canggih untuk manajemen data absensi dan pengguna yang terint
    python main.py
    ```
 
+## 🐳 Cara Memulai dengan Docker
+
+1. Build image
+   ```
+   docker build -t adms .
+   ```
+2. Jalankan container
+   ```
+   docker run -d \
+  -p 5555:5555 \
+  -v $(pwd)/logs:/app/logs \
+  --name adms \
+  adms
+   ```
+
 ## 🌐 Manajemen Webhook
 
 Akses halaman manajemen webhook di `/webhooks` untuk menambah, mengubah, atau menghapus webhook.
