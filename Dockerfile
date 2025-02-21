@@ -27,7 +27,7 @@ ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
 # Expose port yang digunakan aplikasi (default Flask port)
-EXPOSE 5555
+EXPOSE 8000
 
 # Command untuk menjalankan aplikasi
 CMD ["python", "main.py"]
